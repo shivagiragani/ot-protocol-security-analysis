@@ -212,6 +212,18 @@ tempCodeRunnerFile.py
 # Marimo
 marimo/_static/
 marimo/_lsp/
+# Private PKI material and secrets
+*.key
+*.csr
+*.srl
+*.p12
+*.pfx
+*.env
+passwd
+
+# Operational captures
+*.pcap
+*.pcapng
 __marimo__/
 
 # Streamlit

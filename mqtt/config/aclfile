@@ -1,0 +1,5 @@
+user ot_operator
+topic read #
+
+user sensor_node
+topic readwrite factory/sensor/#

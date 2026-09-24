@@ -57,3 +57,30 @@ who is asking. This project shows, end to end:
 │ - FUXA HMI VM / Neighbor (192.168.100.y)                │
 │ - Node-RED Proxy (Added in Phase 4 Hardening)           │
 └─────────────────────────────────────────────────────────┘
+# Modbus Attack & Hardening Code
+
+Companion code for Purple Thursday #01-#03. All scripts assume you are
+running against a device **you own and control** in an isolated lab segment.
+
+## Setup
+```bash
+pip install pymodbus pyshark
+```
+`pyshark` requires `tshark` installed (`apt install tshark` on Debian/Kali).
+
+## scripts/ (attack + baseline)
+- **attack_scan.py** — enumerates holding registers, input registers, and coils on a target with no authentication check. Run this first to confirm the device is reachable and to see what's exposed.
+- **attack_write.py** — issues an unauthorized write (FC06/FC05) to tamper a register or coil. Run before hardening (expect success) and after (expect rejection).
+- **baseline_capture.py** — captures/analyzes Modbus traffic to build the known-good baseline table (source IPs, function codes, registers touched) referenced in Phase 1 of the project plan.
+
+## config/ (hardening)
+- **harden_iptables.sh** — segmentation rule: allow-lists Modbus/TCP to the baselined management/HMI IP only, drops and logs everything else.
+- **modbus_proxy.py** — standalone Python proxy that filters by source IP + function code before forwarding to the real PLC. Use this if you're not running Node-RED.
+- **node_red_flow.json** — same filtering logic as a Node-RED flow (Import via the Node-RED menu). Update the `ALLOW_IPS`/`ALLOW_FCS` values and the PLC IP in the function/tcp-request nodes before deploying.
+- **stunnel_modbus.conf** — wraps the Modbus session in TLS as a compensating transport control, for environments where OpenPLC doesn't support Modbus Security natively.
+
+## Suggested test sequence
+1. `python3 scripts/baseline_capture.py --iface eth0 --duration 300` — build the baseline while FUXA operates normally.
+2. `python3 scripts/attack_scan.py --target <plc_ip>` then `attack_write.py` from Kali — confirm the attack succeeds pre-hardening.
+3. Apply `harden_iptables.sh` and deploy `modbus_proxy.py` (or the Node-RED flow) in front of the PLC.
+4. Re-run the identical `attack_write.py` command — confirm it is now rejected, and check `modbus_proxy_rejects.log` / the iptables log for the entry.

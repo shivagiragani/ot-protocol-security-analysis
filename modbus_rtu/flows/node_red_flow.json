@@ -1,0 +1,45 @@
+[
+    {
+        "id": "modbus-hardening-tab",
+        "type": "tab",
+        "label": "Modbus Zero-Trust Proxy",
+        "disabled": false,
+        "info": "Filters inbound Modbus requests by source IP and function code before forwarding to the real PLC. Import via Node-RED menu -> Import."
+    },
+    {
+        "id": "tcp-in-node",
+        "type": "tcp in",
+        "z": "modbus-hardening-tab",
+        "name": "Listen :5020",
+        "server": "server",
+        "port": "5020",
+        "datamode": "buffer",
+        "wires": [["filter-function"]]
+    },
+    {
+        "id": "filter-function",
+        "type": "function",
+        "z": "modbus-hardening-tab",
+        "name": "Allow-list check",
+        "func": "// Baselined allow-list - replace with your Phase 1 values\nconst ALLOW_IPS = ['192.168.29.X'];\nconst ALLOW_FCS = [3, 4, 6];\n\nconst srcIp = msg.req && msg.req.connection ? msg.req.connection.remoteAddress : msg._session.remoteAddress;\nconst fc = msg.payload[7]; // byte 7 of MBAP header = function code\n\nif (!ALLOW_IPS.includes(srcIp)) {\n    node.warn(`REJECTED - unauthorized source ${srcIp} (FC${fc})`);\n    return null;\n}\nif (!ALLOW_FCS.includes(fc)) {\n    node.warn(`REJECTED - disallowed function code FC${fc} from ${srcIp}`);\n    return null;\n}\nnode.log(`ALLOWED - ${srcIp} FC${fc}`);\nreturn msg;",
+        "outputs": 1,
+        "wires": [["forward-to-plc"]]
+    },
+    {
+        "id": "forward-to-plc",
+        "type": "tcp request",
+        "z": "modbus-hardening-tab",
+        "name": "Forward to OpenPLC",
+        "server": "192.168.100.50",
+        "port": "502",
+        "out": "immed",
+        "wires": [["tcp-out-node"]]
+    },
+    {
+        "id": "tcp-out-node",
+        "type": "tcp out",
+        "z": "modbus-hardening-tab",
+        "name": "Reply to client",
+        "wires": []
+    }
+]
